@@ -1,0 +1,41 @@
+name: Quality Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate audit artifacts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = sorted(Path("audit").rglob("*.json"))
+          assert paths, "expected audit artifacts"
+          for path in paths:
+              with path.open() as handle:
+                  json.load(handle)
+          print(f"validated {len(paths)} audit artifacts")
+          PY
+
+  merge-gate:
+    name: merge-gate
+    if: always()
+    needs: [quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce upstream success
+        run: |
+          test "${{ needs.quality.result }}" = "success"
