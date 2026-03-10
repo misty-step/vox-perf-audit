@@ -48,6 +48,8 @@ jobs:
                       json.load(handle)
               except JSONDecodeError as exc:
                   raise SystemExit(f"{path}: invalid JSON ({exc})") from exc
+              except OSError as exc:
+                  raise SystemExit(f"{path}: could not read file ({exc})") from exc
 
           print(f"validated {len(paths)} audit artifacts")
           PY
