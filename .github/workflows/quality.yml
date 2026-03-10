@@ -10,6 +10,7 @@ permissions:
 jobs:
   quality:
     name: quality
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,22 +21,46 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          from json import JSONDecodeError
           from pathlib import Path
 
-          paths = sorted(Path("audit").rglob("*.json"))
-          assert paths, "expected audit artifacts"
+          audit_root = Path("audit")
+          paths = sorted(audit_root.rglob("*.json"))
+          if not paths:
+              raise SystemExit(
+                  "expected committed audit artifacts under audit/; "
+                  "see README.md for the repo contract"
+              )
+
           for path in paths:
-              with path.open() as handle:
-                  json.load(handle)
+              try:
+                  with path.open() as handle:
+                      json.load(handle)
+              except JSONDecodeError as exc:
+                  raise SystemExit(f"{path}: invalid JSON ({exc})") from exc
+
           print(f"validated {len(paths)} audit artifacts")
           PY
 
   merge-gate:
     name: merge-gate
+    timeout-minutes: 5
+    # Always run so branch protection gets one stable merge verdict.
     if: always()
     needs: [quality]
     runs-on: ubuntu-latest
     steps:
       - name: Enforce upstream success
         run: |
-          test "${{ needs.quality.result }}" = "success"
+          case "${{ needs.quality.result }}" in
+            success)
+              ;;
+            failure|cancelled|skipped)
+              echo "quality job concluded with '${{ needs.quality.result }}'"
+              exit 1
+              ;;
+            *)
+              echo "unexpected quality result: '${{ needs.quality.result }}'"
+              exit 1
+              ;;
+          esac
