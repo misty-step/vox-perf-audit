@@ -29,6 +29,12 @@ jobs:
           from pathlib import Path
 
           audit_root = Path("audit")
+          if not audit_root.is_dir():
+              raise SystemExit(
+                  "expected committed audit artifacts under audit/; "
+                  "see README.md for the repo contract"
+              )
+
           paths = sorted(audit_root.rglob("*.json"))
           if not paths:
               raise SystemExit(
@@ -55,16 +61,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Enforce upstream success
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
         run: |
-          case "${{ needs.quality.result }}" in
+          case "$QUALITY_RESULT" in
             success)
               ;;
             failure|cancelled|skipped)
-              echo "quality job concluded with '${{ needs.quality.result }}'"
+              echo "quality job concluded with '$QUALITY_RESULT'"
               exit 1
               ;;
             *)
-              echo "unexpected quality result: '${{ needs.quality.result }}'"
+              echo "unexpected quality result: '$QUALITY_RESULT'"
               exit 1
               ;;
           esac
