@@ -49,7 +49,7 @@ jobs:
   merge-gate:
     name: merge-gate
     timeout-minutes: 5
-    # Always run so branch protection gets one stable merge verdict.
+    # Always run so completed workflow runs publish one stable merge verdict.
     if: always()
     needs: [quality]
     runs-on: ubuntu-latest
